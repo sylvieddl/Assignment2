@@ -1,0 +1,125 @@
+---
+title: "EPI 203 Assignment 4: Reproducible Report"
+author: "Sylvie Dobrota Lai"
+date: today
+format: pdf
+editor: visual
+tbl-cap-location: top 
+---
+
+```{r}
+#| label: load-packages 
+#| include: false
+library(broom.helpers)
+library(tidyverse)
+library(tableone)
+library(gtsummary)
+```
+
+## Introduction
+
+Cardiac events such as stroke and heart attack, are common in the United States. Common risk factors for cardiac events include age, smoking history, hypertension, and diabetes. It is estimated that the healthcare costs related to cardiovascular risk factors and cardiac events is expected to reach \$1344 billion in 2050.
+
+Using the synthetic dataset provided in EPI 203, I tested my hypothesis that higher cost is associated with increased odds of cardiac event.
+
+## Methods
+
+I used a dataset with 5,000 observations with adults 18 and older. The dataset had information on cost, cardiac event, age, smoking status, and biological sex.
+
+The outcome of interest was cardiac event, modeled as a binary variable (yes/no). The exposure of interest was cost, which was a continuous variable. For describing the distribution of the variables, I used median (IQR) for continuous variables and numbers (percentages) for categorical variables.
+
+As continuous variables were not normally distributed, I tested for differences between group using the Wilcoxon rank sum test. Pearson's chi-square tests were used for categorical variables. I modeled the association between the cost and cardiac event variables using a logistic regression and adjusted for three confounders: age, sex, and smoking status.
+
+$$ logit(p(Cardiac_i)) = \beta_0 + \beta_1*Cost_i + \beta_2*Age_i+ \beta_3 *sex + \beta_4*smoke  $$
+
+I considered a p-value less than or equal to 0.05 as statistically signficant. All analyses were conducted in R version 4.5.2 using the tidyverse and gtsummary packages.
+
+## Results
+
+There were 5,000 participants in the dataset, with 4,2735 having no cardiac event and 275 having a cardiac event. The median cost was 9,376 USD. The median cost for those without cardiac event was 9,350 (IQR 9,072 to 9,622) and the median cost for those with cardiac event was 10,230 (IQR 9,910 to 10,506). This difference was statistically significant (p\<0.001).
+
+Participants who experienced a cardiac event were significantly more likely to be female and smoke. 48% of those who had cardiac event were smokers, compared to only 11\$ of those who did not. Age did not appear to differ between the two groups (Table 1).
+
+```{r}
+#| echo: false
+#| warning: false
+#Load data 
+hw2_df <- read_csv("raw-data/cohort.csv")
+
+#Prepare dataset
+clean_df <- hw2_df %>% 
+  mutate(
+    cardiac=factor(cardiac, levels= c(0,1), labels =c("No", "Yes")),
+    smoke=factor(smoke,levels= c(0,1), labels =c("No", "Yes")),
+    female=factor(female, levels= c(0,1), labels =c("No", "Yes")),
+  )
+
+#table 1 code
+clean_df %>% 
+  tbl_summary(by=cardiac, include = c(age, female, smoke)) %>% 
+  add_p() %>% 
+  modify_caption("**Table 1. Participant characteristics by cardiac event**") 
+```
+
+While cost appears reasonably normally distributed, those with cardiac event have much higher cost on average (Figure 1).
+
+```{r}
+#| echo: false
+#| warning: false
+#|tbl-cap: Table 2
+
+# Distribution of cost by cardiac status
+p <- clean_df %>% 
+  ggplot( aes(x=cost, fill=cardiac)) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity') +
+  scale_fill_manual(values=c("#69b3a2", "#404080")) +
+  theme_classic() +
+  labs(fill="cardiac",
+       title="Figure 1. Distribution of cost by cardiac")
+
+p
+
+clean_df %>% 
+  tbl_summary(by=cardiac, include = c(cost)) %>% 
+  add_p() %>% 
+  modify_caption("**Table 2. Cost by cardiac event**") 
+```
+
+Those that were older had higher cost (Figure 2).
+
+```{r}
+#| echo: false
+#| warning: false
+#scatterplot of cost vs age
+
+fig2<- clean_df %>%  
+  ggplot(aes(x=cost, y=age)) +
+  geom_point()+
+  labs(title="Figure 2. Cost and age")
+
+fig2
+
+```
+
+In the fully adjusted model, every 1 unit increase in cost was associated with a 1-fold increase in odds of cardiac (95% CI: 1.009, 1.011, p\<0.001). All estimates are presented in Table 2.
+
+```{r}
+#| echo: false
+#| warning: false
+
+model <- glm(cardiac~ cost + age + female + smoke, 
+             data=clean_df, 
+             family="binomial")
+
+tbl_regression(model, exponentiate=TRUE)
+```
+
+## Discussion
+
+I found that higher cost was associated with higher odds of cardiac event. This is similar to findings in prior studies.
+
+My analysis had several limitations. I was unable to adjust for several well-established risk factors, such as hypertension, as they were not available in the dataset. Additionally, as this was a cross-sectional analysis, I am unable to establish causality or the direction of the relationship, in other words if high costs lead to cardiac events to cardiac events lead to high costs. Further studies using larger, longitudinal datasets are needed to answer these important questions.
+
+## AI Statement
+
+I did not use any generative AI technology to complete any portion of this work.
